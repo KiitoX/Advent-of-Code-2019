@@ -1,0 +1,5 @@
+
+
+void amp_out() {
+
+}
