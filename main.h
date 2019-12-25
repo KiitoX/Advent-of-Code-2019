@@ -23,9 +23,17 @@ typedef struct {
 	int at[];
 } t_program;
 
+typedef struct {
+	bool direct_mode;
+	size_t pos; // only changed for input
+	size_t len; // only changed for output
+	int data[];
+} t_input, t_output;
+
 void read_code(char *line, size_t len, void *state);
 void print_state(t_program *program);
 void exec_program(t_program *program);
+t_output *run_program(t_program *program, t_input *input, bool output_direct_mode);
 
 // these are the functions that each complete the two assignments for every day
 // day1.c

@@ -64,7 +64,7 @@ int get_param(t_program *program, size_t pos, unsigned off) {
 		case IMMEDIATE:
 			return arg;
 		default:
-			perror("Invalid pmode");
+			fprintf(stderr, "Invalid pmode: %d (%d at %ld)\n", pmode, op_code, pos);
 	}
 }
 
@@ -81,10 +81,23 @@ typedef enum {
 } e_instruction;
 
 void exec_program(t_program *program) {
+	t_input input = {true, 0, 0};
+	run_program(program, &input, true);
+}
+
+t_output *run_program(t_program *program, t_input *input, bool output_direct_mode) {
 	// instruction pointer
 	size_t pos = 0;
 	// initial instruction
 	int op_code = program->at[pos];
+
+	t_output *output = NULL;
+	if (!output_direct_mode) {
+		output = malloc(sizeof(t_output) + sizeof(int[0]));
+		output->direct_mode = output_direct_mode;
+		output->pos = 0;
+		output->len = 0;
+	}
 
 	forever {
 		// amount for moving the instruction pointer
@@ -114,12 +127,26 @@ void exec_program(t_program *program) {
 				offset += 3;
 				break;
 			case INPUT:
-				printf("Input a value: ");
-				scanf("%d", &program->at[dest1]);
+				if (input->direct_mode) {
+					printf("Input a value: ");
+					scanf("%d", &program->at[dest1]);
+				} else {
+					// read from input struct
+					program->at[dest1] = input->data[input->pos];
+					input->pos++;
+				}
 				offset += 1;
 				break;
 			case OUTPUT:
-				printf("%d\n", arg1);
+				if (output_direct_mode) {
+					printf("%d\n", arg1);
+				} else {
+					// put data into output struct
+					//printf("saving %d\n", arg1);
+					output->len++;
+					output = realloc(output, sizeof(t_output) + sizeof(int[output->len]));
+					output->data[output->len - 1] = arg1;
+				}
 				offset += 1;
 				break;
 			case JUMP_IF_TRUE:
@@ -147,7 +174,7 @@ void exec_program(t_program *program) {
 				offset += 3;
 				break;
 			case TERMINATION:
-				return; // stop execution
+				return output; // stop execution
 			default:
 				fprintf(stderr, "Undefined op_code: %d (%d at %ld)\n", instr, op_code, pos);
 		}
