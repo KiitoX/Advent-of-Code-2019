@@ -42,7 +42,8 @@ void handle_relations(char *line, size_t len, void *state) {
 		node->parent = NULL;
 	}
 
-	orbit_map->nodes = reallocarray(orbit_map->nodes, orbit_map->len++, sizeof(t_node));
+	orbit_map->len++;
+	orbit_map->nodes = reallocarray(orbit_map->nodes, orbit_map->len, sizeof(t_node));
 	orbit_map->nodes[orbit_map->len - 1] = node;
 
 	//printf("%s orbits %s\n", identifier, parent);
@@ -56,8 +57,8 @@ void link_relations(t_orbit_map *orbit_map) {
 			node->parent = find_node(orbit_map, node->parent_id);
 			if (node->parent != NULL) {
 				// we found our parent, please register
-				node->parent->children = realloc(node->parent->children,
-						sizeof(t_node) * node->parent->len_children++);
+				node->parent->len_children++;
+				node->parent->children = reallocarray(node->parent->children, node->parent->len_children, sizeof(t_node));
 				node->parent->children[node->parent->len_children - 1] = node;
 			} else {
 				perror("well, this shouldn't happen...\n");
@@ -131,11 +132,16 @@ t_node *find_common_parent(t_orbit_map *orbit_map, t_node *node_a, t_node *node_
 }
 
 void calc_orbits() {
-	t_node com = {"COM", "---", NULL, 0, NULL};
+	t_node *com = malloc(sizeof(t_node));
+	memcpy(com->id, "COM", sizeof(char[4]));
+	memcpy(com->parent_id, "---", sizeof(char[4]));
+	com->len_children = 0;
+	com->children = NULL;
+	com->parent = com;
 
-	t_orbit_map orbit_map = {&com, 1, NULL};
+	t_orbit_map orbit_map = {com, 1, NULL};
 	orbit_map.nodes = reallocarray(orbit_map.nodes, orbit_map.len, sizeof(t_node));
-	orbit_map.nodes[0] = &com;
+	orbit_map.nodes[0] = com;
 
 	read_file("../input6", handle_relations, &orbit_map);
 
@@ -160,4 +166,11 @@ void calc_orbits() {
 	printf("%s is %d away from %s\n", san->id, to_san, parent->id);
 
 	printf("total distance: %d\n", to_you + to_san);
+
+	for (int i = 0; i < orbit_map.len; ++i) {
+		free(orbit_map.nodes[i]->children);
+		free(orbit_map.nodes[i]);
+	}
+
+	free(orbit_map.nodes);
 }
