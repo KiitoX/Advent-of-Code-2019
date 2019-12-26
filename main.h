@@ -70,4 +70,7 @@ void calc_orbits();
 // day7.c
 void amp_out();
 
+// day8.c
+void imagine();
+
 #endif //ADVENT2019_MAIN_H

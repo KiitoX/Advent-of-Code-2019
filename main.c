@@ -1,7 +1,7 @@
 #include "main.h"
 
 int main() {
-	amp_out();
+	imagine();
 
 	return 0;
 }
