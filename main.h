@@ -19,21 +19,34 @@ void read_file(const char* file_name, void handle_line(char *, size_t, void *), 
 
 // intcode.c
 typedef struct {
+	size_t instruction_pointer;
 	size_t len;
 	int at[];
 } t_program;
 
+typedef enum {
+	HAS_FINISHED = 1,
+	NEEDS_INPUT = 2,
+} e_reason;
+
 typedef struct {
-	bool direct_mode;
-	size_t pos; // only changed for input
-	size_t len; // only changed for output
+	union {
+		size_t pos; // used for cached input
+		e_reason reason; // termination reason in output
+	};
+	size_t len; // modified only in output
 	int data[];
 } t_input, t_output;
+
+typedef enum {
+	DIRECT = 1, // use stdin/stdout
+	CACHED = 2, // use t_input and t_output
+} e_io_mode;
 
 void read_code(char *line, size_t len, void *state);
 void print_state(t_program *program);
 void exec_program(t_program *program);
-t_output *run_program(t_program *program, t_input *input, bool output_direct_mode);
+t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode);
 
 // these are the functions that each complete the two assignments for every day
 // day1.c

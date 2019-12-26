@@ -21,6 +21,7 @@ void process() {
 
 	t_program *program = NULL;
 	program = malloc(sizeof(t_program) + sizeof(int[state->len]));
+	program->instruction_pointer = 0;
 	program->len = state->len;
 
 	memcpy(program->at, state->at, sizeof(int) * state->len);
@@ -47,6 +48,7 @@ void process() {
 		for (int j = 0; j < 100; ++j) {
 			// initialise state
 			memcpy(program->at, state->at, sizeof(int) * state->len);
+			program->instruction_pointer = 0;
 
 			// set noun and verb
 			program->at[1] = i; // noun

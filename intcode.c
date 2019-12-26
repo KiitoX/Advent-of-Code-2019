@@ -18,6 +18,7 @@ void read_code(char *line, size_t len, void *state) {
 	*program_pointer = malloc(sizeof(t_program) + sizeof(int[index + 1]));
 	t_program *program = *program_pointer;
 
+	program->instruction_pointer = 0;
 	program->len = index + 1;
 
 	for (size_t i = 0; i < program->len; ++i) {
@@ -68,6 +69,10 @@ int get_param(t_program *program, size_t pos, unsigned off) {
 	}
 }
 
+void exec_program(t_program *program) {
+	run_program(program, NULL, DIRECT);
+}
+
 typedef enum {
 	ADDITION = 1, // in1, in2, dest
 	MULTIPLICATION = 2, // in1, in2, dest
@@ -80,30 +85,26 @@ typedef enum {
 	TERMINATION = 99,
 } e_instruction;
 
-void exec_program(t_program *program) {
-	t_input input = {true, 0, 0};
-	run_program(program, &input, true);
-}
-
-t_output *run_program(t_program *program, t_input *input, bool output_direct_mode) {
+t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 	// instruction pointer
-	size_t pos = 0;
+	size_t pos = program->instruction_pointer;
 	// initial instruction
 	int op_code = program->at[pos];
 
 	t_output *output = NULL;
-	if (!output_direct_mode) {
+	if (io_mode == CACHED) {
 		output = malloc(sizeof(t_output) + sizeof(int[0]));
-		output->direct_mode = output_direct_mode;
 		output->pos = 0;
 		output->len = 0;
 	}
 
-	forever {
+	bool stop = false;
+	while (!stop) {
 		// amount for moving the instruction pointer
 		int offset = 1;
 
 		e_instruction instr = op_code % 100;
+
 		// resolve argument values
 		int arg1 = get_param(program, pos, 1);
 		int arg2 = get_param(program, pos, 2);
@@ -127,25 +128,44 @@ t_output *run_program(t_program *program, t_input *input, bool output_direct_mod
 				offset += 3;
 				break;
 			case INPUT:
-				if (input->direct_mode) {
-					printf("Input a value: ");
-					scanf("%d", &program->at[dest1]);
-				} else {
-					// read from input struct
-					program->at[dest1] = input->data[input->pos];
-					input->pos++;
+				switch (io_mode) {
+					case DIRECT:
+						printf("Input a value: ");
+						scanf("%d", &program->at[dest1]);
+						break;
+					case CACHED:
+						if (input->pos < input->len) {
+							// read from input struct
+							program->at[dest1] = input->data[input->pos];
+							input->pos++;
+						} else {
+							// we don't have enough input, wait for more
+							// do not include skip for this instruction,
+							// as we want to rerun it with new input
+							program->instruction_pointer = pos;
+							output->reason = NEEDS_INPUT;
+							stop = true;
+						}
+						break;
+					default:
+						fprintf(stderr, "Invalid io_mode: %d\n", io_mode);
 				}
 				offset += 1;
 				break;
 			case OUTPUT:
-				if (output_direct_mode) {
-					printf("%d\n", arg1);
-				} else {
-					// put data into output struct
-					//printf("saving %d\n", arg1);
-					output->len++;
-					output = realloc(output, sizeof(t_output) + sizeof(int[output->len]));
-					output->data[output->len - 1] = arg1;
+				switch (io_mode) {
+					case DIRECT:
+						printf("%d\n", arg1);
+						break;
+					case CACHED:
+						// put data into output struct
+						//printf("saving %d\n", arg1);
+						output->len++;
+						output = realloc(output, sizeof(t_output) + sizeof(int[output->len]));
+						output->data[output->len - 1] = arg1;
+						break;
+					default:
+						fprintf(stderr, "Invalid io_mode: %d\n", io_mode);
 				}
 				offset += 1;
 				break;
@@ -174,7 +194,10 @@ t_output *run_program(t_program *program, t_input *input, bool output_direct_mod
 				offset += 3;
 				break;
 			case TERMINATION:
-				return output; // stop execution
+				program->instruction_pointer = 0;
+				output->reason = HAS_FINISHED;
+				stop = true; // stop execution
+				break;
 			default:
 				fprintf(stderr, "Undefined op_code: %d (%d at %ld)\n", instr, op_code, pos);
 		}
@@ -183,4 +206,6 @@ t_output *run_program(t_program *program, t_input *input, bool output_direct_mod
 		pos += offset;
 		op_code = program->at[pos];
 	}
+
+	return output;
 }
