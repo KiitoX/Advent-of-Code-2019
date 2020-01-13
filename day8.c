@@ -22,7 +22,7 @@ void load_space_image(char *line, size_t len, void *state) {
 	image = *image_pointer;
 	image->num_layers = (int)(len / num_pixels);
 
-	//printf("nums: %ld, pixels: %d, layers: %d\n", len, num_pixels, image->num_layers);
+	//printf("nums: %ld, pixels: %d, layers: %d\n", mem_size, num_pixels, image->num_layers);
 
 	// make enough space for all layers
 	// allocate memory for each layer

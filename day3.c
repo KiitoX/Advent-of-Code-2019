@@ -90,10 +90,10 @@ void crisscross() {
 
 			// memory management, disabled in favour of constant length
 			/*
-			if (index >= len) {
-				len += 50;
-				printf("realloc: %ld, %ld\n", len, sizeof(t_point) * len);
-				t_point *recross = realloc(crossings, sizeof(t_point) * len);
+			if (index >= mem_size) {
+				mem_size += 50;
+				printf("realloc: %ld, %ld\n", mem_size, sizeof(t_point) * mem_size);
+				t_point *recross = realloc(crossings, sizeof(t_point) * mem_size);
 				if (recross) {
 					crossings = recross;
 				} else {

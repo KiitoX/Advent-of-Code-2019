@@ -20,11 +20,11 @@ void process() {
 	read_file("../input2", read_code, &state);
 
 	t_program *program = NULL;
-	program = malloc(sizeof(t_program) + sizeof(int[state->len]));
+	program = malloc(sizeof(t_program) + sizeof(int64_t[state->mem_size]));
 	program->instruction_pointer = 0;
-	program->len = state->len;
+	program->mem_size = state->mem_size;
 
-	memcpy(program->at, state->at, sizeof(int) * state->len);
+	memcpy(program->at, state->at, sizeof(int64_t) * state->mem_size);
 
 	// part1:
 	program->at[1] = 12;
@@ -34,7 +34,7 @@ void process() {
 
 	/*
 	// print list
-	for (size_t i = 0; i < program->len; i++) {
+	for (size_t i = 0; i < program->mem_size; i++) {
 		if (i > 0) {
 			putchar(',');
 		}
@@ -47,7 +47,7 @@ void process() {
 	for (int i = 0; i < 100; ++i) {
 		for (int j = 0; j < 100; ++j) {
 			// initialise state
-			memcpy(program->at, state->at, sizeof(int) * state->len);
+			memcpy(program->at, state->at, sizeof(int64_t) * state->mem_size);
 			program->instruction_pointer = 0;
 
 			// set noun and verb
@@ -56,7 +56,7 @@ void process() {
 
 			exec_program(program);
 
-			printf("i: %d, j: %d, 0: %d, k: %d\n", i, j, program->at[0], 100 * i + j);
+			printf("i: %d, j: %d, 0: %ld, k: %d\n", i, j, program->at[0], 100 * i + j);
 			if (program->at[0] == 19690720) { // part2:
 				goto end;
 			}

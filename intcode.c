@@ -3,36 +3,61 @@
 // expecting a pointer to a (t_program *) which will be malloc'ed accordingly
 void read_code(char *line, size_t len, void *state) {
 	t_program **program_pointer = (t_program **)state;
-	int content[(len + 1) / 2]; // array with maximum amount of digits when input in format 1,2,3,4...
+	size_t max_program_length = (len + 1) / 2; // maximum amount of numbers when input is in format 1,2,3,4...
+	int64_t content[max_program_length]; // array buffer to hold parsing result
 
 	int matches = 0;
 	int index = 0;
-	while ((matches = sscanf(line, "%d%*[,]%s", &(content[index]), line))) {
-		//printf("%d: %d (%s) -> %d\n", index, content[index], line, matches);
+	while ((matches = sscanf(line, "%ld%*[,]%s", &(content[index]), line))) {
+		//printf("%d: %ld (%s) -> %d\n", index, content[index], line, matches);
 		if (matches < 2) { // detect last match
 			break;
 		}
 		index++;
 	}
 
-	*program_pointer = malloc(sizeof(t_program) + sizeof(int[index + 1]));
+	size_t program_length = index + 1;
+	// since day8 we need more memory than the program needs itself
+	size_t program_memory_size = program_length + 102400;
+
+	*program_pointer = malloc(sizeof(t_program) + sizeof(int64_t[program_memory_size]));
 	t_program *program = *program_pointer;
 
-	program->instruction_pointer = 0;
-	program->len = index + 1;
+	// initialise program memory to 0
+	memset(program->at, 0, sizeof(int64_t[program_memory_size]));
 
-	for (size_t i = 0; i < program->len; ++i) {
+	program->instruction_pointer = 0;
+	program->relative_base = 0;
+	program->mem_size = program_memory_size;
+
+	for (size_t i = 0; i < program_length; ++i) {
 		program->at[i] = content[i];
 	}
 }
 
-void print_state(t_program *program) {
+void print_state(t_program *program, bool stop_early) {
+	int count_zeroes = 0;
 
-	for (size_t i = 0; i < program->len; i++) {
+	for (size_t i = 0; i < program->mem_size; i++) {
+		int c = program->at[i];
+		if (stop_early) {
+			if (c == 0) {
+				count_zeroes++;
+			} else {
+				count_zeroes = 0;
+			}
+			if (count_zeroes > 10) {
+				break;
+			}
+		}
+
 		if (i > 0) {
 			putchar(',');
 		}
-		printf("%d", program->at[i]);
+		if (i % 80 == 0) {
+			printf("\n⮑ ");
+		}
+		printf("%d", c);
 	}
 	putchar('\n');
 }
@@ -40,30 +65,36 @@ void print_state(t_program *program) {
 typedef enum {
 	POSITION = 0, // parameters are pointers
 	IMMEDIATE = 1, // parameters are literals
+	RELATIVE = 2, // parameters are pointers relative to a base address
 } e_parameter_mode;
 
-int get_param(t_program *program, size_t pos, unsigned off) {
+int64_t get_param(t_program *program, size_t pos, unsigned off, bool dest) {
 	unsigned op_code = program->at[pos];
 
 	// op_code: ABCDE => A: pmode3, B: pmode2, C: pmode1, DE: instruction
 	e_parameter_mode pmode = (op_code / (int)pow(10, 1 + off)) % 10;
 
-	int arg = 0; // fallback value, since we always try to retrieve 3 args, even when we don't need to, or can't
-	if ((pos + off) < program->len) {
-		arg = program->at[pos + off];
+	int64_t argument = 0; // fallback value, since we always try to retrieve 3 args, even when we don't need to, or can't
+	if ((pos + off) < program->mem_size) {
+		argument = program->at[pos + off];
 	}
 
-	//printf("(%ld + %d) -> %d w/ %d\n", pos, off, arg, pmode);
+	//printf("(%ld + %d) -> %d w/ %d\n", pos, off, argument, pmode);
 
 	switch (pmode) {
+		case RELATIVE:
+			argument += program->relative_base;
 		case POSITION:
-			if(arg < program->len) { // another fallback for wild numbers
-				return program->at[arg];
-			} else {
-				return 0;
+			if (!dest) { // destination arguments will never want destination resolution
+				if(argument < program->mem_size) { // another fallback for wild numbers, to avoid segfaults
+					return program->at[argument];
+				} else {
+					//fprintf(stderr, "Illegal address <%ld> in POSITION mode (%ld)\n", argument, program->mem_size);
+					return 0;
+				}
 			}
 		case IMMEDIATE:
-			return arg;
+			return argument;
 		default:
 			fprintf(stderr, "Invalid pmode: %d (%d at %ld)\n", pmode, op_code, pos);
 	}
@@ -82,6 +113,7 @@ typedef enum {
 	JUMP_IF_FALSE = 6, // in1, jmp
 	LESS_THAN = 7, // in1, in2, dest
 	EQUALS = 8, // in1, in2, dest
+	MOVE_REL_BASE = 9, // in1
 	TERMINATION = 99,
 } e_instruction;
 
@@ -89,7 +121,7 @@ t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 	// instruction pointer
 	size_t pos = program->instruction_pointer;
 	// initial instruction
-	int op_code = program->at[pos];
+	unsigned op_code = program->at[pos];
 
 	t_output *output = NULL;
 	if (io_mode == CACHED) {
@@ -106,14 +138,14 @@ t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 		e_instruction instr = op_code % 100;
 
 		// resolve argument values
-		int arg1 = get_param(program, pos, 1);
-		int arg2 = get_param(program, pos, 2);
-		int arg3 = get_param(program, pos, 3);
+		int64_t arg1 = get_param(program, pos, 1, false);
+		int64_t arg2 = get_param(program, pos, 2, false);
+		int64_t arg3 = get_param(program, pos, 3, false);
 		// direct values to be used for writing
 		// NOTE: Parameters that an instruction writes to will never be in immediate mode
-		size_t dest1 = program->at[pos + 1];
-		size_t dest2 = program->at[pos + 2];
-		size_t dest3 = program->at[pos + 3];
+		size_t dest1 = get_param(program, pos, 1, true);
+		size_t dest2 = get_param(program, pos, 2, true);
+		size_t dest3 = get_param(program, pos, 3, true);
 
 		//printf("[%ld] <%d> | [%ld]:%d, [%ld]:%d, [%ld]:%d\n", pos, instr, dest1, arg1, dest2, arg2, dest3, arg3);
 
@@ -131,7 +163,7 @@ t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 				switch (io_mode) {
 					case DIRECT:
 						printf("Input a value: ");
-						scanf("%d", &program->at[dest1]);
+						scanf("%ld", &program->at[dest1]);
 						break;
 					case CACHED:
 						if (input->pos < input->len) {
@@ -155,13 +187,13 @@ t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 			case OUTPUT:
 				switch (io_mode) {
 					case DIRECT:
-						printf("%d\n", arg1);
+						printf("%ld\n", arg1);
 						break;
 					case CACHED:
 						// put data into output struct
 						//printf("saving %d\n", arg1);
 						output->len++;
-						output = realloc(output, sizeof(t_output) + sizeof(int[output->len]));
+						output = realloc(output, sizeof(t_output) + sizeof(int64_t[output->len]));
 						output->data[output->len - 1] = arg1;
 						break;
 					default:
@@ -193,9 +225,15 @@ t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode) {
 				program->at[dest3] = (arg1 == arg2) ? 1 : 0;
 				offset += 3;
 				break;
+			case MOVE_REL_BASE:
+				program->relative_base += arg1;
+				offset += 1;
+				break;
 			case TERMINATION:
 				program->instruction_pointer = 0;
-				output->reason = HAS_FINISHED;
+				if (output != NULL) {
+					output->reason = HAS_FINISHED;
+				}
 				stop = true; // stop execution
 				break;
 			default:

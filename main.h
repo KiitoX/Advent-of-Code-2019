@@ -20,8 +20,9 @@ void read_file(const char* file_name, void handle_line(char *, size_t, void *), 
 // intcode.c
 typedef struct {
 	size_t instruction_pointer;
-	size_t len;
-	int at[];
+	size_t relative_base;
+	size_t mem_size;
+	int64_t at[];
 } t_program;
 
 typedef enum {
@@ -35,7 +36,7 @@ typedef struct {
 		e_reason reason; // termination reason in output
 	};
 	size_t len; // modified only in output
-	int data[];
+	int64_t data[];
 } t_input, t_output;
 
 typedef enum {
@@ -44,7 +45,7 @@ typedef enum {
 } e_io_mode;
 
 void read_code(char *line, size_t len, void *state);
-void print_state(t_program *program);
+void print_state(t_program *program, bool stop_early);
 void exec_program(t_program *program);
 t_output *run_program(t_program *program, t_input *input, e_io_mode io_mode);
 
@@ -72,5 +73,8 @@ void amp_out();
 
 // day8.c
 void imagine();
+
+// day9.c
+void boost();
 
 #endif //ADVENT2019_MAIN_H

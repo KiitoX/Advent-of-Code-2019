@@ -1,19 +1,19 @@
 #include "main.h"
 
 t_program *init_amplifier(t_program *program_state) {
-	t_program *program = malloc(sizeof(t_program) + sizeof(int[program_state->len]));
+	t_program *program = malloc(sizeof(t_program) + sizeof(int64_t[program_state->mem_size]));
 	program->instruction_pointer = 0;
-	program->len = program_state->len;
+	program->mem_size = program_state->mem_size;
 
 	// initialise program
-	memcpy(program->at, program_state->at, sizeof(int) * program->len);
+	memcpy(program->at, program_state->at, sizeof(int64_t) * program->mem_size);
 
 	return program;
 }
 
 t_output *run_amplifier(t_program *program, int input_value) {
 	t_input *input = NULL;
-	input = malloc(sizeof(t_input) + sizeof(int[1]));
+	input = malloc(sizeof(t_input) + sizeof(int64_t[1]));
 	input->pos = 0;
 	input->len = 1;
 	input->data[0] = input_value;
