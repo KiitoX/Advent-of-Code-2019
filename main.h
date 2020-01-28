@@ -77,4 +77,7 @@ void imagine();
 // day9.c
 void boost();
 
+// day10.c
+void watch();
+
 #endif //ADVENT2019_MAIN_H

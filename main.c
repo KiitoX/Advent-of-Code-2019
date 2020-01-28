@@ -1,7 +1,7 @@
 #include "main.h"
 
 int main() {
-	boost();
+	watch();
 
 	return 0;
 }
